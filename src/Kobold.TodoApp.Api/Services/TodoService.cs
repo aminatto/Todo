@@ -31,7 +31,6 @@ namespace Kobold.TodoApp.Api.Services
         public Todo Update(int id, TodoViewModel todovm)
         {
             var todo = Todos.Single(todo => todo.Id == id);
-            todo.Description = todovm.Description;
             todo.Done = todovm.Done;
 
             return todo;
