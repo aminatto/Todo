@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Kobold.TodoApp.Api.Models;
 using Kobold.TodoApp.Api.Services;
+using Kobold.TodoApp.Api.ViewModels;
+using System.Linq.Expressions;
 
 namespace Kobold.TodoApp.Api.Controllers
 {
@@ -15,43 +17,91 @@ namespace Kobold.TodoApp.Api.Controllers
     public class TodosController : ControllerBase
     {
 
-        private readonly TodoService _todoService;
+        private readonly ITodoService _todoService;
         private readonly ILogger<TodosController> _logger;
 
-        public TodosController(ILogger<TodosController> logger)
+        public TodosController(ILogger<TodosController> logger, ITodoService todoService)
         {
             _logger = logger;
-            _todoService = new TodoService();
+            _todoService = todoService;
         }
 
         [HttpGet]
-        public IEnumerable<Todo> Get()
+        public async Task<ActionResult<IEnumerable<Todo>>> GetAll()
         {
-            return _todoService.Get();
-        }
-
-        [HttpPost]
-        public Todo Create([FromBody] TodoViewModel todovm)
-        {
-            return _todoService.Create(todovm);
-        }
-
-        [HttpPut("{id}")]
-        public Todo Update([FromRoute] int id, [FromBody] TodoViewModel todovm)
-        {
-            return _todoService.Update(id, todovm);
+            try
+            {
+                var todos = await _todoService.GetTodosAsync();
+                
+                if (todos == null)
+                    return NotFound("Não existem tarefas cadastradas.");
+                return Ok(todos);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
         }
 
         [HttpGet("{id}")]
-        public Todo Get([FromRoute] int id)
+        public async Task<ActionResult<Todo>> GetById(int id)
         {
-            return _todoService.Get(id);
+            try
+            {
+                var todo = await _todoService.GetTodoByIdAsync(id);
+
+                if (todo == null)
+                    return NotFound("Tarefa não encontrada.");
+                return Ok(todo);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
         }
 
-        [HttpDelete("{id}")]
-        public void Remove([FromRoute] int id)
+        [HttpPost]
+        public async Task<ActionResult> CreateTodo([FromBody] TodoViewModel todovm)
         {
-            _todoService.Remove(id);
+            try
+            {
+                await _todoService.CreateTodoAsync(todovm);
+                return Ok(todovm);
+            }
+            catch (Exception e)
+            {
+                return BadRequest("Erro ao cadastrar tarefa: " + e.Message);
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult<TodoViewModel>> Update([FromRoute] int id, [FromBody] TodoViewModel todovm)
+        {
+            try
+            {
+                await _todoService.UpdateTodoAsync(id, todovm);
+                return Ok($"A tarefa de id {id} foi atualizada.");
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+   
+
+        [HttpDelete("{id}")]
+        public async Task<ActionResult<TodoViewModel>> Delete(int id)
+        {
+            try
+            {
+                await _todoService.DeleteTodoAsync(id);
+                return Ok($"A Tarefa de id {id} foi deletada.");
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
         }
 
     }

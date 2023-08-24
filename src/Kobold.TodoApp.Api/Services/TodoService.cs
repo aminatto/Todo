@@ -1,51 +1,77 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Kobold.TodoApp.Api.Models;
+using Kobold.TodoApp.Api.ViewModels;
+using Kobold.TodoApp.Api.Context;
+using Microsoft.EntityFrameworkCore;
 
 namespace Kobold.TodoApp.Api.Services
 {
-
-    public class TodoService
+    public class TodoService : ITodoService
     {
+        private readonly AppDbContext _context;
 
-        private static int nextId = 1;
-        private static List<Todo> Todos = new List<Todo>();
-
-        public IEnumerable<Todo> Get()
+        public TodoService(AppDbContext context)
         {
-            return Todos;
+            _context = context;
         }
 
-        public Todo Create(TodoViewModel todovm)
+        public async Task<IEnumerable<Todo>> GetTodosAsync()
         {
-            var todo = new Todo { Id = nextId++, DataCriacao = DateTime.Now, Description = todovm.Description, Done = todovm.Done }; 
-            Todos.Add(todo);
-
-            return todo;
+            return await _context.Todos
+                 .Include(x => x.TodoCollection)
+                 .ToListAsync();
         }
 
-        public Todo Update(int id, TodoViewModel todovm)
+        public async Task<Todo> GetTodoByIdAsync(int id)
         {
-            var todo = Todos.Single(todo => todo.Id == id);
-            todo.Done = todovm.Done;
-
-            return todo;
+            return await _context.Todos
+                .Include(x => x.TodoCollection)
+                .FirstOrDefaultAsync(x => x.Id == id);
         }
 
-        public Todo Get(int id)
+        public async Task CreateTodoAsync(TodoViewModel todoCollectionViewModel)
         {
-            return Todos.Single(todo => todo.Id == id);
+
+            var todo = new Todo()
+            {
+                Description = todoCollectionViewModel.Description,
+                Done = todoCollectionViewModel.Done,
+                DataCriacao = DateTime.Now,
+                TodoCollectionId = todoCollectionViewModel.CollectionId
+            };
+
+
+            await _context.Todos.AddAsync(todo);
+            await _context.SaveChangesAsync();
         }
 
-        public void Remove(int id)
+        public async Task UpdateTodoAsync(int id, TodoViewModel todoCollection)
         {
-            var index = Todos.FindIndex(todo => todo.Id == id);
-            Todos.RemoveAt(index);
+            var todo = await _context.Todos.FindAsync(id);
+            if (todo == null)
+                throw new Exception("Tarefa não encontrada.");
+
+            todo.Description = todoCollection.Description;
+            todo.TodoCollectionId = todoCollection.CollectionId;
+            todo.Done = todoCollection.Done;
+            await _context.SaveChangesAsync();
+
         }
+
+        public async Task DeleteTodoAsync(int id)
+        {
+            var todo = await _context.Todos.FindAsync(id);
+            if (todo == null)
+                throw new Exception("Tarefa não encontrada.");
+
+            _context.Todos.Remove(todo);
+            await _context.SaveChangesAsync();
+        }
+
+
+
 
     }
 }
